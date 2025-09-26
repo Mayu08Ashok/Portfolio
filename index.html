@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Portfolio</title>
+    <!-- Use Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0a192f;
+            --text-dark: #e0e0e0;
+            --card-dark: #1a2b40;
+            --primary-dark: #8be9fd;
+            --secondary-dark: #569cd6;
+            --shadow-dark: rgba(0, 0, 0, 0.5);
+
+            --bg-light: #f0f8ff;
+            --text-light: #1f2937;
+            --card-light: #ffffff;
+            --primary-light: #3b82f6;
+            --secondary-light: #2563eb;
+            --shadow-light: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+        [data-theme="light"] {
+            background-color: var(--bg-light);
+            color: var(--text-light);
+        }
+
+        /* Custom styles for the intro pop-up */
+        .intro-popup-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 100;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .intro-popup-content {
+            background: linear-gradient(135deg, #1a2b40, #0a192f);
+            border-radius: 2rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            animation: bounceIn 0.8s ease-out forwards;
+        }
+
+        .intro-popup-content.fade-out {
+            animation: fadeOut 0.5s forwards;
+        }
+
+        .pop-up-button {
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .pop-up-button:hover {
+            transform: scale(1.05);
+        }
+
+        /* Keyframe animations */
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Simple typing effect */
+        .typing-effect::after {
+            content: '|';
+            display: inline-block;
+            animation: blink-caret .75s step-end infinite;
+        }
+
+        @keyframes blink-caret {
+            from, to { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
+        /* Skill icon animations */
+        .skill-icon {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .skill-icon:hover {
+            animation: bounce 0.6s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Social media icon glow effect */
+        .social-icon {
+            transition: filter 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        .social-icon:hover {
+            transform: scale(1.1);
+        }
+
+        .social-icon.instagram:hover {
+            filter: drop-shadow(0 0 8px #E1306C);
+        }
+        .social-icon.github:hover {
+            filter: drop-shadow(0 0 8px #6e5494);
+        }
+        .social-icon.linkedin:hover {
+            filter: drop-shadow(0 0 8px #0A66C2);
+        }
+        .social-icon.mail:hover {
+            filter: drop-shadow(0 0 8px #D14836);
+        }
+
+        /* Confirmation message box styles */
+        .message-box {
+            position: fixed;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            padding: 1rem 2rem;
+            border-radius: 9999px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
+        }
+        .message-box.show {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+
+<body data-theme="dark">
+
+    <!-- Firebase SDK Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+
+        // Firebase Auth and Firestore Initialization
+        let db, auth, userId;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+        // Set log level to debug for development
+        setLogLevel('debug');
+
+        const saveThemePreference = async (theme) => {
+            if (!db || !userId) {
+                console.error("Firebase not initialized. Cannot save theme preference.");
+                return;
+            }
+            try {
+                const themeDocRef = doc(db, `/artifacts/${appId}/users/${userId}/preferences/theme`);
+                await setDoc(themeDocRef, { mode: theme }, { merge: true });
+                console.log("Theme preference saved to Firestore:", theme);
+            } catch (e) {
+                console.error("Error writing document: ", e);
+            }
+        };
+
+        const updateThemeToggleButton = (theme) => {
+            const toggleIcon = document.getElementById('theme-toggle-icon');
+            if (theme === 'dark') {
+                toggleIcon.innerHTML = `<svg class="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.846 6.611a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5h2.25a.75.75 0 01.75.75zM17.611 18.846a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 19.5a.75.75 0 01.75.75V22.5a.75.75 0 01-1.5 0v-2.25a.75.75 0 01.75-.75zM6.611 17.611a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM4.5 12a.75.75 0 01.75-.75h2.25a.75.75 0 010 1.5H5.25a.75.75 0 01-.75-.75zM7.66 5.84a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59z" clip-rule="evenodd" fill-rule="evenodd" /></svg>`;
+            } else {
+                toggleIcon.innerHTML = `<svg class="w-6 h-6 text-gray-800" fill="currentColor" viewBox="0 0 24 24"><path d="M9.548 2.058a.75.75 0 01.166 1.258A8.834 8.834 0 007.973 11.25c0 4.885 3.965 8.85 8.85 8.85 1.954 0 3.743-.63 5.21-1.722a.75.75 0 01.996.907A10.354 10.354 0 0116.823 21c-5.65 0-10.25-4.6-10.25-10.25 0-2.822 1.145-5.397 2.975-7.29a.75.75 0 011.25-.166z" clip-rule="evenodd" fill-rule="evenodd" /></svg>`;
+            }
+        };
+
+        const initializeFirebase = async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                console.log("Firebase initialized. User ID:", userId);
+
+                // Set up theme listener and button event listener only after Firebase is ready
+                const themeDocRef = doc(db, `/artifacts/${appId}/users/${userId}/preferences/theme`);
+                onSnapshot(themeDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const theme = docSnap.data().mode;
+                        document.body.setAttribute('data-theme', theme);
+                        updateThemeToggleButton(theme);
+                    }
+                }, (error) => {
+                    console.error("Error listening to theme changes:", error);
+                });
+
+                const themeToggleBtn = document.getElementById('theme-toggle');
+                themeToggleBtn.addEventListener('click', () => {
+                    const currentTheme = document.body.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    document.body.setAttribute('data-theme', newTheme);
+                    saveThemePreference(newTheme);
+                });
+
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFirebase();
+        });
+    </script>
+
+    <!-- Intro Pop-up Container -->
+    <div id="intro-popup-container" class="intro-popup-container">
+        <div id="intro-popup-content" class="intro-popup-content">
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-4">Hello! Welcome 👋</h1>
+            <button id="close-intro" class="pop-up-button py-2 px-6 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-full shadow-lg transition-all">
+                Enter
+            </button>
+        </div>
+    </div>
+
+    <!-- Confirmation Message Box -->
+    <div id="message-box" class="message-box bg-sky-500 text-white">
+        Message sent successfully!
+    </div>
+
+    <!-- Main Portfolio Content -->
+    <div id="portfolio-content" class="hidden">
+        <!-- Header/Navbar -->
+        <header class="sticky top-0 z-50 backdrop-blur-sm shadow-lg transition-colors duration-300"
+                :class="{'bg-[#0a192f]/90': theme === 'dark', 'bg-[#f0f8ff]/90': theme === 'light'}">
+            <nav class="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center transition-colors duration-300"
+                 :class="{'text-white': theme === 'dark', 'text-gray-800': theme === 'light'}">
+                <a href="#home" class="text-2xl font-bold rounded-lg p-2 transition-all hover:bg-sky-600/20">Mayuranathan's Portfolio</a>
+                <div class="mt-4 sm:mt-0 flex gap-4 items-center">
+                    <a href="#about" class="py-2 px-4 rounded-full transition-all hover:bg-sky-600/20">About</a>
+                    <a href="#skills" class="py-2 px-4 rounded-full transition-all hover:bg-sky-600/20">Skills</a>
+                    <a href="#projects" class="py-2 px-4 rounded-full transition-all hover:bg-sky-600/20">Projects</a>
+                    <a href="#contact" class="py-2 px-4 rounded-full transition-all hover:bg-sky-600/20">Contact</a>
+
+                    <!-- Theme Toggle Button -->
+                    <button id="theme-toggle" class="p-2 rounded-full transition-all hover:bg-sky-600/20">
+                        <div id="theme-toggle-icon">
+                            <!-- Icon will be set by JS -->
+                        </div>
+                    </button>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Hero Section (Home) -->
+        <section id="home" class="min-h-screen flex items-center justify-center p-8 text-center">
+            <div class="max-w-4xl mx-auto">
+                <div class="animate-bounce-in">
+                    <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold mb-4">
+                        Hello, I'm <span class="bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-blue-500" id="name-typing-target"></span>
+                    </h1>
+                    <p class="text-xl md:text-2xl font-light mb-8"
+                       :class="{'text-gray-300': theme === 'dark', 'text-gray-600': theme === 'light'}">
+                        A passionate Web Developer focused on creating beautiful and functional applications ans Data Analytics.
+                    </p>
+                    <a href="Mayuranathan _Professional CV Resume_20250913_162701_0000.pdf" class="inline-block py-3 px-8 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-full shadow-lg transition-all" download="Mayuranathan_Sathiyanarayanan_CV.pdf">
+                        Download CV
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="container mx-auto px-4 py-16">
+            <div class="p-8 md:p-12 rounded-3xl shadow-2xl flex flex-col md:flex-row items-center md:items-start space-y-8 md:space-y-0 md:space-x-12 transition-colors duration-300"
+                 :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                <div class="w-full md:w-1/3 flex justify-center md:justify-start">
+                    <img src="Me.jpeg" alt="Mayuranathan Sathyanarayanan" class="rounded-xl w-full md:w-auto h-auto object-cover border-4 border-sky-500">
+                </div>
+                <div class="w-full md:w-2/3 text-center md:text-left">
+                    <h2 class="text-4xl font-bold mb-4" :class="{'text-white': theme === 'dark', 'text-gray-800': theme === 'light'}">About Me</h2>
+                    <p class="text-lg leading-relaxed" :class="{'text-gray-200': theme === 'dark', 'text-gray-700': theme === 'light'}">
+                        "I am a passionate and detail-oriented developer with expertise in Python, HTML, CSS, JavaScript, and React. I enjoy creating user-friendly web applications and solving problems with clean, efficient code. Along with my technical skills, I bring strong teamwork, adaptability, and communication abilities, which help me collaborate effectively and deliver high-quality projects. Driven by curiosity and continuous learning, I strive to build innovative solutions that make a real impact."
+                    </p>
+                    <p class="text-lg leading-relaxed mt-4" :class="{'text-gray-200': theme === 'dark', 'text-gray-700': theme === 'light'}">
+                        In my free time, I enjoy contributing to open-source projects, learning new programming languages, and exploring the great outdoors.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Skills Section -->
+        <section id="skills" class="container mx-auto px-4 py-16">
+            <h2 class="text-4xl font-bold text-center mb-12">My Skills</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
+                <!-- Skill Card - HTML -->
+                <div class="p-6 rounded-2xl shadow-xl flex flex-col items-center justify-center transition-colors duration-300"
+                     :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                    <i class="fab fa-html5 text-6xl text-orange-500 skill-icon"></i>
+                    <p class="mt-4 font-semibold text-lg">HTML</p>
+                </div>
+                <!-- Skill Card - CSS -->
+                <div class="p-6 rounded-2xl shadow-xl flex flex-col items-center justify-center transition-colors duration-300"
+                     :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                    <i class="fab fa-css3-alt text-6xl text-blue-500 skill-icon"></i>
+                    <p class="mt-4 font-semibold text-lg">CSS</p>
+                </div>
+                <!-- Skill Card - JavaScript -->
+                <div class="p-6 rounded-2xl shadow-xl flex flex-col items-center justify-center transition-colors duration-300"
+                     :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                    <i class="fab fa-js-square text-6xl text-yellow-400 skill-icon"></i>
+                    <p class="mt-4 font-semibold text-lg">JavaScript</p>
+                </div>
+                <!-- Skill Card - Python -->
+                <div class="p-6 rounded-2xl shadow-xl flex flex-col items-center justify-center transition-colors duration-300"
+                     :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                    <i class="fab fa-python text-6xl text-blue-600 skill-icon"></i>
+                    <p class="mt-4 font-semibold text-lg">Python</p>
+                </div>
+                <!-- Skill Card - React -->
+                <div class="p-6 rounded-2xl shadow-xl flex flex-col items-center justify-center transition-colors duration-300"
+                     :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                    <i class="fab fa-react text-6xl text-blue-400 skill-icon"></i>
+                    <p class="mt-4 font-semibold text-lg">React</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Projects Section -->
+        <section id="projects" class="container mx-auto px-4 py-16">
+            <h2 class="text-4xl font-bold text-center mb-12">My Projects</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Project Card 1 -->
+                <a href="https://github.com/Mayu08Ashok" target="_blank" class="block p-6 rounded-2xl shadow-xl hover:shadow-sky-500/30 transition-shadow duration-300 transition-colors duration-300"
+                   :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                    <img src="https://placehold.co/600x400/1e293b/a1a1aa?text=Project+1" alt="Project 1" class="rounded-lg mb-4">
+                    <h3 class="text-2xl font-bold mb-2">Project Name One</h3>
+                    <p class="text-gray-400">A detailed description of the project, including the technologies used and its purpose.</p>
+                </a>
+                <!-- Project Card 2 -->
+                <a href="https://github.com/Mayu08Ashok" target="_blank" class="block p-6 rounded-2xl shadow-xl hover:shadow-sky-500/30 transition-shadow duration-300 transition-colors duration-300"
+                   :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                    <img src="https://placehold.co/600x400/1e293b/a1a1aa?text=Project+2" alt="Project 2" class="rounded-lg mb-4">
+                    <h3 class="text-2xl font-bold mb-2">Project Name Two</h3>
+                    <p class="text-gray-400">A detailed description of the project, including the technologies used and its purpose.</p>
+                </a>
+                <!-- Project Card 3 -->
+                <a href="https://github.com/Mayu08Ashok" target="_blank" class="block p-6 rounded-2xl shadow-xl hover:shadow-sky-500/30 transition-shadow duration-300 transition-colors duration-300"
+                   :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+                    <img src="https://placehold.co/600x400/1e293b/a1a1aa?text=Project+3" alt="Project 3" class="rounded-lg mb-4">
+                    <h3 class="text-2xl font-bold mb-2">Project Name Three</h3>
+                    <p class="text-gray-400">A detailed description of the project, including the technologies used and its purpose.</p>
+                </a>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="container mx-auto px-4 py-16">
+    <div class="p-8 md:p-12 rounded-3xl shadow-2xl text-center transition-colors duration-300"
+        :class="{'bg-[#1a2b40]': theme === 'dark', 'bg-white': theme === 'light'}">
+        <h2 class="text-4xl font-bold mb-4">Get in Touch</h2>
+        <form action="https://formspree.io/f/xrbybjre" method="POST" class="flex flex-col gap-6 max-w-lg mx-auto">
+            <input type="text" name="Name" placeholder="Your Name" class="p-3 rounded-lg bg-gray-700 text-white placeholder-gray-400 border border-transparent focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors" required />
+            <input type="email" name="Email" placeholder="Your Email" class="p-3 rounded-lg bg-gray-700 text-white placeholder-gray-400 border border-transparent focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors" required />
+            <textarea name="Message" placeholder="Your message..." rows="5" class="p-3 rounded-lg bg-gray-700 text-white placeholder-gray-400 border border-transparent focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors" required></textarea>
+            
+            <button type="submit" id="sendBtn" class="py-3 px-8 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-full shadow-lg transition-all">
+                Send Message
+            </button>
+        </form>
+
+        <div class="mt-12 flex justify-center gap-6">
+            <a href="https://www.instagram.com/_.its_me_mayu._?igsh=aXAzc3cyeTV5ZTl3" target="_blank" class="text-gray-400 hover:text-white social-icon instagram">
+                <i class="fab fa-instagram text-3xl"></i>
+            </a>
+            <a href="https://github.com/Mayu08Ashok" target="_blank" class="text-gray-400 hover:text-white social-icon github">
+                <i class="fab fa-github text-3xl"></i>
+            </a>
+            <a href="https://www.linkedin.com/in/mayuranathan-sathiyanarayanan-6178b1304?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app" target="_blank" class="text-gray-400 hover:text-white social-icon linkedin">
+                <i class="fab fa-linkedin-in text-3xl"></i>
+            </a>
+            <a href="mailto:mayuranathanmayura@gmail.com" class="text-gray-400 hover:text-white social-icon mail">
+                <i class="fas fa-envelope text-3xl"></i>
+            </a>
+        </div>
+    </div>
+</section>  
+
+        <!-- Footer -->
+        <footer class="text-center py-6 text-sm text-gray-500">
+            <p>&copy; 2024 Mayuranathan's Portfolio. All Rights Reserved.</p>
+        </footer>
+    </div>
+
+    <!-- JavaScript for intro animation, theme toggle, and form effect -->
+    <script>
+        const introPopup = document.getElementById('intro-popup-container');
+        const introContent = document.getElementById('intro-popup-content');
+        const closeButton = document.getElementById('close-intro');
+        const portfolioContent = document.getElementById('portfolio-content');
+        const messageBox = document.getElementById('message-box');
+        const contactForm = document.getElementById('contactForm');
+        const sendBtn = document.getElementById('sendBtn');
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const messageInput = document.getElementById('message');
+        const nameTypingTarget = document.getElementById('name-typing-target');
+        const nameText = "Mayuranathan Sathyanarayanan";
+
+        const closeIntro = () => {
+            introContent.classList.add('fade-out');
+            setTimeout(() => {
+                introPopup.style.opacity = '0';
+                introPopup.style.visibility = 'hidden';
+                portfolioContent.classList.remove('hidden');
+                document.body.style.overflow = 'auto';
+            }, 500);
+        };
+
+        closeButton.addEventListener('click', closeIntro);
+        setTimeout(closeIntro, 3000);
+
+        const showMessage = (text, isError = false) => {
+            messageBox.textContent = text;
+            messageBox.style.backgroundColor = isError ? 'red' : '#3b82f6';
+            messageBox.classList.add('show');
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 3000);
+        };
+
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            sendBtn.textContent = 'Sending...';
+            sendBtn.disabled = true;
+            sendBtn.style.cursor = 'not-allowed';
+
+            const name = nameInput.value;
+            const email = emailInput.value;
+            const message = messageInput.value;
+
+            const mailtoLink = `mailto:mayuranathanmayura@gmail.com?subject=Portfolio Contact Form from ${name}&body=Name: ${name}%0AEmail: ${email}%0A%0A${message}`;
+
+            window.location.href = mailtoLink;
+
+            setTimeout(() => {
+                sendBtn.textContent = 'Send';
+                sendBtn.disabled = false;
+                sendBtn.style.cursor = 'pointer';
+                nameInput.value = '';
+                emailInput.value = '';
+                messageInput.value = '';
+                showMessage('Message sent successfully!');
+            }, 1000);
+        });
+
+        // Simple typing effect function
+        function typeWriter(element, text, i = 0) {
+            if (i < text.length) {
+                element.textContent += text.charAt(i);
+                setTimeout(() => typeWriter(element, text, i + 1), 100); // Adjust speed here (100ms)
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Start the simple typing effect after a delay on load
+            setTimeout(() => {
+                typeWriter(nameTypingTarget, nameText);
+            }, 3500); // Waits for the intro pop-up to close
+
+            // Firebase Initialization
+            initializeFirebase();
+        });
+
+        const saveThemePreference = async (theme) => {
+            if (!db || !userId) {
+                console.error("Firebase not initialized. Cannot save theme preference.");
+                return;
+            }
+            try {
+                const themeDocRef = doc(db, `/artifacts/${appId}/users/${userId}/preferences/theme`);
+                await setDoc(themeDocRef, { mode: theme }, { merge: true });
+                console.log("Theme preference saved to Firestore:", theme);
+            } catch (e) {
+                console.error("Error writing document: ", e);
+            }
+        };
+
+        const updateThemeToggleButton = (theme) => {
+            const toggleIcon = document.getElementById('theme-toggle-icon');
+            if (theme === 'dark') {
+                toggleIcon.innerHTML = `<svg class="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.846 6.611a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5h2.25a.75.75 0 01.75.75zM17.611 18.846a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 19.5a.75.75 0 01.75.75V22.5a.75.75 0 01-1.5 0v-2.25a.75.75 0 01.75-.75zM6.611 17.611a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM4.5 12a.75.75 0 01.75-.75h2.25a.75.75 0 010 1.5H5.25a.75.75 0 01-.75-.75zM7.66 5.84a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59z" clip-rule="evenodd" fill-rule="evenodd" /></svg>`;
+            } else {
+                toggleIcon.innerHTML = `<svg class="w-6 h-6 text-gray-800" fill="currentColor" viewBox="0 0 24 24"><path d="M9.548 2.058a.75.75 0 01.166 1.258A8.834 8.834 0 007.973 11.25c0 4.885 3.965 8.85 8.85 8.85 1.954 0 3.743-.63 5.21-1.722a.75.75 0 01.996.907A10.354 10.354 0 0116.823 21c-5.65 0-10.25-4.6-10.25-10.25 0-2.822 1.145-5.397 2.975-7.29a.75.75 0 011.25-.166z" clip-rule="evenodd" fill-rule="evenodd" /></svg>`;
+            }
+        };
+
+        const initializeFirebase = async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                console.log("Firebase initialized. User ID:", userId);
+
+                // Set up theme listener and button event listener only after Firebase is ready
+                const themeDocRef = doc(db, `/artifacts/${appId}/users/${userId}/preferences/theme`);
+                onSnapshot(themeDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const theme = docSnap.data().mode;
+                        document.body.setAttribute('data-theme', theme);
+                        updateThemeToggleButton(theme);
+                    }
+                }, (error) => {
+                    console.error("Error listening to theme changes:", error);
+                });
+
+                const themeToggleBtn = document.getElementById('theme-toggle');
+                themeToggleBtn.addEventListener('click', () => {
+                    const currentTheme = document.body.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    document.body.setAttribute('data-theme', newTheme);
+                    saveThemePreference(newTheme);
+                });
+
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFirebase();
+        });
+    </script>
+</body>
+</html>
